@@ -121,26 +121,46 @@ val androidFiles = listOf(
 
 sourceSets {
     main {
-        // 桌面自有源码整目录纳入
+        // 桌面自有源码 + 从 Android 工程同步过来的解析层镜像（见 syncAndroidSources）
         kotlin.srcDir("src/main/kotlin")
-
-        // Android 白名单：**按目录分组**后每个目录只加一次 srcDir，
-        // 再把该目录下不在白名单里的 .kt 文件排除掉。
-        //
-        // 为什么要分组：如果同一目录被 srcDir 多次（每个文件一次），
-        // 那么最后一次的 exclude 会把前几次想要的文件也挡掉，结果一个都编不进来。
-        androidFiles
-            .map { File(androidSrcRoot, it) }
-            .groupBy { it.parentFile }
-            .forEach { (dir, files) ->
-                kotlin.srcDir(dir)
-                val wanted = files.map { it.name }.toSet()
-                dir.listFiles()
-                    ?.asSequence()
-                    ?.filter { it.isFile && it.extension == "kt" && it.name !in wanted }
-                    ?.forEach { kotlin.exclude(it.name) }
-            }
     }
+}
+
+/**
+ * 把白名单里的 Android 源文件复制到 build/synced/ 下再参与编译。
+ *
+ * 为什么不用 srcDir 直接指向 ../app：
+ *   那样同一个目录必须整体纳入，想把 HeadlessWebView.kt 单独排除很别扭
+ *   （Gradle 的 exclude 是按 srcDir 根相对匹配的，多目录叠加时容易互相覆盖）。
+ *   这里改成「先同步、再编译」，参与编译的文件就是 synced 目录的内容，
+ *   一份不多、一份不少；源文件仍然是 Android 工程里的那一份，不产生分叉。
+ */
+val syncedSrcDir = layout.buildDirectory.dir("synced")
+
+val syncAndroidSources by tasks.registering {
+    val root = androidSrcRoot
+    val target = syncedSrcDir
+    inputs.files(androidFiles.map { File(root, it) })
+    outputs.dir(target)
+    doLast {
+        val out = target.get().asFile
+        out.deleteRecursively()
+        out.mkdirs()
+        androidFiles.forEach { rel ->
+            val src = File(root, rel)
+            if (src.isFile) {
+                val dst = File(out, rel)
+                dst.parentFile.mkdirs()
+                src.copyTo(dst, overwrite = true)
+            }
+        }
+    }
+}
+
+kotlin.sourceSets.getByName("main").kotlin.srcDir(syncedSrcDir)
+
+tasks.named("compileKotlin") {
+    dependsOn(syncAndroidSources)
 }
 
 dependencies {

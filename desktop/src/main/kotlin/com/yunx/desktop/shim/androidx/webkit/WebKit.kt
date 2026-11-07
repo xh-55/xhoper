@@ -26,12 +26,17 @@ class UserAgentMetadata {
     class BrandVersion(val brand: String, val version: String) {
         class Builder {
             private var brand: String = ""
-            private var version: String = ""
+            private var majorVersion: String = ""
+            private var fullVersion: String = ""
 
             fun setBrand(b: String) = apply { brand = b }
-            fun setVersion(v: String) = apply { version = v }
+            fun setVersion(v: String) = apply { majorVersion = v }
 
-            fun build(): BrandVersion = BrandVersion(brand, version)
+            /** androidx.webkit 的实名方法（原代码用的是这个） */
+            fun setMajorVersion(v: String) = apply { majorVersion = v }
+            fun setFullVersion(v: String) = apply { fullVersion = v }
+
+            fun build(): BrandVersion = BrandVersion(brand, majorVersion.ifBlank { fullVersion })
         }
     }
 
