@@ -1,13 +1,13 @@
-// XhOper 桌面版 · GitHub Actions 构建
-//
-// 为什么要有这个文件：
-//   jpackage 不能跨平台——要 Windows 的 .exe，就必须在 Windows 上打包。
-//   这个 workflow 借 GitHub 的 windows-latest 机器出包，产物上传为 Artifact，
-//   从 Actions 页面下载即可，本地不需要任何 Windows 环境。
-//
-// 触发：
-//   - 手动（Actions → Build Desktop (Windows) → Run workflow）
-//   - 推送到 master/main 且改动了 desktop/ 目录
+# XhOper 桌面版 · GitHub Actions 构建
+#
+# 为什么要有这个文件：
+#   jpackage 不能跨平台——要 Windows 的 .exe，就必须在 Windows 上打包。
+#   这里借 GitHub 的 windows-latest 机器出包，产物上传为 Artifact，
+#   从 Actions 页面下载即可，本地不需要任何 Windows 环境。
+#
+# 触发：
+#   - 手动（Actions → Build Desktop (Windows) → Run workflow）
+#   - 推送到 main/master 且改动了 desktop/ 或解析层源码
 name: Build Desktop (Windows)
 
 on:
@@ -59,15 +59,13 @@ jobs:
       - name: Package EXE
         run: ./gradlew packageReleaseExe --no-daemon --stacktrace
 
-      # 产物路径由 Compose Desktop 的约定决定：
-      #   desktop/build/compose/binaries/main/exe/
       - name: List artifacts
         if: always()
         run: |
           if (Test-Path build/compose/binaries/main) {
             Get-ChildItem -Recurse build/compose/binaries/main | Select-Object FullName, Length
           } else {
-            Write-Host "未生成 binaries 目录"
+            Write-Host "not generated"
           }
         shell: pwsh
 
@@ -80,7 +78,6 @@ jobs:
             desktop/build/compose/binaries/main/msi/*.msi
           if-no-files-found: warn
 
-      # 失败时把编译日志也传上去，省得在网页上翻
       - name: Upload build reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
