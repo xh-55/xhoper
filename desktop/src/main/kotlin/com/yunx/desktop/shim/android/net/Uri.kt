@@ -22,6 +22,7 @@ class Uri private constructor(private val raw: String) {
     val query: String? get() = runCatching { URI(raw).rawQuery }.getOrNull()
     val fragment: String? get() = runCatching { URI(raw).fragment }.getOrNull()
     val authority: String? get() = runCatching { URI(raw).authority }.getOrNull()
+    val userInfo: String? get() = runCatching { URI(raw).userInfo }.getOrNull()
     val isAbsolute: Boolean get() = scheme != null
 
     val lastPathSegment: String?
