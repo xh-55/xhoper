@@ -4,17 +4,10 @@
 // 那些 android.* 调用由 src/main/kotlin/com/yunx/desktop/shim 下的 JVM 垫片提供，
 // 因此各网盘的 API 逻辑只有一份真源，Android 端与桌面端永远同步。
 //
-// 复用的整目录：
-//   data/network/**     各网盘 / 视频平台的接口实现——整个项目的价值都在这里
-//   data/download/**    只取 DownloadPathPolicy 等纯逻辑（见下方 exclude 说明）
-//   data/security/**    凭证加解密
-//   data/upload/**      OSS/COS 签名与上传工具（纯 JVM 部分）
-//   util/**             日志脱敏、文件名处理等纯工具
-//
-// 不复用（由桌面端自己实现，见 core/）：
-//   data/db/**       Room 注解处理器，JVM 上跑不了
-//   data/gopeed/**   依赖 Android .so 与 DexFile
-//   ui/**            Compose for Android，桌面端用 Compose Desktop 重写
+// ★ 这里用「白名单」而不是「整目录 + exclude」：
+//   Gradle 的 exclude 模式相对各个 srcDir 根解析，多 srcDir 并行时很容易漏掉
+//   （此前 AudioExtractor / DashMuxer 就是这样混进来的）。白名单列出来的
+//   文件才是参与编译的，多一个不多、少一个不少。
 plugins {
     kotlin("jvm") version "2.1.0"
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.0"
@@ -35,59 +28,105 @@ kotlin {
     jvmToolchain(17)
 }
 
-/** Android 工程源码根目录 */
 val androidSrcRoot = file("../app/src/main/kotlin/com/yunx/app")
 
 /**
- * 不参与桌面编译的 Android 源文件。
+ * 复用的 Android 源文件（白名单）。
  *
- * 都是「依赖垫片无法表达的 Android 能力」的文件：WebView / SAF /
- * MediaCodec / 前台服务 / Binder / 通知。桌面端要么有替代实现（core/），
- * 要么这个功能在桌面端不提供。
+ * 判断标准：纯 HTTP / 纯 JSON / 纯 JVM 逻辑，或只用到垫片能表达的 API
+ * （Log、Base64、Context、SharedPreferences、Uri、Build）。
  */
-val androidExcludes = listOf(
-    // ── WebView 无头浏览器：桌面端不启用（视频平台解析会走纯 HTTP 分支） ──
-    "data/network/video/HeadlessWebView.kt",
+val androidFiles = listOf(
+    // ── 网盘 API：这是整个项目最有价值的部分，全部复用 ──
+    "data/network/BaiduApi.kt",
+    "data/network/BaiduApiException.kt",
+    "data/network/BaiduConstants.kt",
+    "data/network/C139Api.kt",
+    "data/network/C139Constants.kt",
+    "data/network/C139DeviceInfo.kt",
+    "data/network/C139Kouling.kt",
+    "data/network/DiagnosticNetworkInterceptor.kt",
+    "data/network/GitHubApi.kt",
+    "data/network/GitHubCommitDateCache.kt",
+    "data/network/GitHubLinkParser.kt",
+    "data/network/GitHubModels.kt",
+    "data/network/GitHubResponseCache.kt",
+    "data/network/GitHubTokenStore.kt",
+    "data/network/GuangYaApi.kt",
+    "data/network/GuangYaConstants.kt",
+    "data/network/HttpClients.kt",
+    "data/network/ILanzouApi.kt",
+    "data/network/ILanzouConstants.kt",
+    "data/network/LanzouApi.kt",
+    "data/network/LanzouConstants.kt",
+    "data/network/Pan115Api.kt",
+    "data/network/Pan115Constants.kt",
+    "data/network/Pan115Crypto.kt",
+    "data/network/Pan123Api.kt",
+    "data/network/Pan123Constants.kt",
+    "data/network/Pan123DeviceId.kt",
+    "data/network/Pan123LoginSupport.kt",
+    "data/network/QuarkApi.kt",
+    "data/network/QuarkApiException.kt",
+    "data/network/QuarkCdn.kt",
+    "data/network/QuarkConstants.kt",
+    "data/network/QuarkUpload.kt",
+    "data/network/ShareLinkParser.kt",
+    "data/network/StarSeaApi.kt",
+    "data/network/StarSeaConstants.kt",
+    "data/network/UCApi.kt",
+    "data/network/UCConstants.kt",
+    "data/network/XunleiApi.kt",
+    "data/network/XunleiConstants.kt",
+    "data/network/XunleiDeviceFingerprint.kt",
+    "data/network/XunleiKouling.kt",
+    "data/network/XunleiWebCredential.kt",
 
-    // ── 通知 / 前台服务 / MediaStore 保存 ──
-    "data/download/DownloadService.kt",
-    "data/download/DownloadSaver.kt",
+    // ── 数据模型 ──
+    "data/network/model/ShareExpire.kt",
+    "data/network/model/ShareModels.kt",
 
-    // ── MediaCodec 音视频合轨（桌面端需 ffmpeg，第一版不启用） ──
-    "data/download/DashMuxer.kt",
-    "data/download/AudioExtractor.kt",
-    "data/download/MotionPhotoWriter.kt",
+    // ── 视频平台解析（除 HeadlessWebView：它依赖 WebView，桌面端不启用） ──
+    "data/network/video/AcFunParser.kt",
+    "data/network/video/BilibiliParser.kt",
+    "data/network/video/DouyinParser.kt",
+    "data/network/video/KuaishouParser.kt",
+    "data/network/video/PixivParser.kt",
+    "data/network/video/VideoHttp.kt",
+    "data/network/video/VideoLinkParser.kt",
+    "data/network/video/VideoModels.kt",
+    "data/network/video/VideoParser.kt",
+    "data/network/video/VideoParsers.kt",
+    "data/network/video/VideoPlatform.kt",
+    "data/network/video/WeiboParser.kt",
+    "data/network/video/XhsParser.kt",
 
-    // ── Gopeed 内置引擎：依赖 Android .so 与 DexFile ──
-    "data/gopeed",
+    // ── 下载相关的纯策略逻辑（不含 MediaCodec / 前台服务 / SAF 那几个） ──
+    "data/download/DownloadPathPolicy.kt",
+    "data/download/DownloadPlatform.kt",
+    "data/download/DownloadSource.kt",
+    "data/download/HlsRequestPolicy.kt",
+    "data/download/HttpRangePolicy.kt",
+    "data/download/MagnetLink.kt",
 
-    // ── 依赖 Intent / PackageManager / MediaStore / Manifest 的工具 ──
-    "util/AppLinks.kt",
-    "util/ArchiveProbe.kt",
-    "util/DeepLinks.kt",
-    "util/LinkOpener.kt",
-    "util/LogExporter.kt",
-    "util/PermissionState.kt",
-    "util/StorageDirs.kt",
-
-    // ── 上传的 UI 包装与 SAF 文件源（桌面端无 SAF，上传功能不启用） ──
-    "data/upload/UploadRunner.kt",
-    "data/upload/UploadSource.kt"
+    // ── 其他纯 JVM 工具 ──
+    "data/security/CredentialCipher.kt",
+    "data/upload/UploadSigning.kt",
+    "util/LogRedactor.kt",
+    "util/DownloadFileNames.kt"
 )
 
 sourceSets {
     main {
         kotlin.srcDir("src/main/kotlin")
-
-        // ★ 把 Android 的解析层直接纳入编译
-        kotlin.srcDir(File(androidSrcRoot, "data/network"))
-        kotlin.srcDir(File(androidSrcRoot, "data/security"))
-        kotlin.srcDir(File(androidSrcRoot, "data/upload"))
-        kotlin.srcDir(File(androidSrcRoot, "data/download"))
-        kotlin.srcDir(File(androidSrcRoot, "util"))
-
-        // exclude 用的路径是「相对各 srcDir 根」的模式，按文件名匹配最稳
-        kotlin.exclude(androidExcludes)
+        // 每个白名单文件单独作为源根，再 include 该文件名——
+        // 这样同目录下的其它文件不会因为 srcDir 是目录而被动纳入。
+        androidFiles.map { File(androidSrcRoot, it) }.forEach { file ->
+            kotlin.srcDir(file.parentFile)
+            kotlin.include { it.name == file.name }
+        }
+        // 上面逐个 include 之后，桌面自有源码也必须在白名单里
+        kotlin.include { it.startsWith(projectDir.resolve("src/main/kotlin").path) }
     }
 }
 
