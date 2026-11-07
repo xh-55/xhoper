@@ -118,15 +118,25 @@ val androidFiles = listOf(
 
 sourceSets {
     main {
+        // 桌面自有源码整目录纳入
         kotlin.srcDir("src/main/kotlin")
-        // 每个白名单文件单独作为源根，再 include 该文件名——
-        // 这样同目录下的其它文件不会因为 srcDir 是目录而被动纳入。
-        androidFiles.map { File(androidSrcRoot, it) }.forEach { file ->
-            kotlin.srcDir(file.parentFile)
-            kotlin.include { it.name == file.name }
-        }
-        // 上面逐个 include 之后，桌面自有源码也必须在白名单里
-        kotlin.include { it.startsWith(projectDir.resolve("src/main/kotlin").path) }
+
+        // Android 白名单：**按目录分组**后每个目录只加一次 srcDir，
+        // 再把该目录下不在白名单里的 .kt 文件排除掉。
+        //
+        // 为什么要分组：如果同一目录被 srcDir 多次（每个文件一次），
+        // 那么最后一次的 exclude 会把前几次想要的文件也挡掉，结果一个都编不进来。
+        androidFiles
+            .map { File(androidSrcRoot, it) }
+            .groupBy { it.parentFile }
+            .forEach { (dir, files) ->
+                kotlin.srcDir(dir)
+                val wanted = files.map { it.name }.toSet()
+                dir.listFiles()
+                    ?.asSequence()
+                    ?.filter { it.isFile && it.extension == "kt" && it.name !in wanted }
+                    ?.forEach { kotlin.exclude(it.name) }
+            }
     }
 }
 
