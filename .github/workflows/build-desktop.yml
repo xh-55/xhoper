@@ -1,13 +1,11 @@
 # XhOper 桌面版 · GitHub Actions 构建
 #
-# 为什么要有这个文件：
-#   jpackage 不能跨平台——要 Windows 的 .exe，就必须在 Windows 上打包。
-#   这里借 GitHub 的 windows-latest 机器出包，产物上传为 Artifact，
-#   从 Actions 页面下载即可，本地不需要任何 Windows 环境。
+# jpackage 不能跨平台——要 Windows 的 .exe，就必须在 Windows 上打包。
+# 这里借 GitHub 的 windows-latest 机器出包，产物上传为 Artifact。
 #
-# 触发：
-#   - 手动（Actions → Build Desktop (Windows) → Run workflow）
-#   - 推送到 main/master 且改动了 desktop/ 或解析层源码
+# 注意：Windows runner 上必须用 gradlew.bat。写 ./gradlew 时 PowerShell 会
+# 把它当成无效可执行文件，命令"成功"但没有实际运行（日志里只有回显），
+# 于是 exe 不会生成，而步骤却显示绿色——非常容易误判。
 name: Build Desktop (Windows)
 
 on:
@@ -29,6 +27,7 @@ jobs:
     defaults:
       run:
         working-directory: desktop
+        shell: pwsh
 
     steps:
       - name: Checkout
@@ -50,24 +49,26 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-desktop-
 
-      # 先只编译。这一步失败通常是源码/垫片对不上，
-      # 单独拆出来可以让错误在日志里更早、更清楚（打包阶段会吞掉编译输出）。
+      # 先单独编译：这一步失败通常是源码/垫片对不上，
+      # 拆出来可以让错误在日志里更早、更清楚（打包阶段会吞掉编译输出）。
       - name: Compile Kotlin
-        run: ./gradlew compileKotlin --no-daemon --stacktrace
+        run: .\gradlew.bat compileKotlin --no-daemon --stacktrace
 
-      # 打包成 exe + msi（jpackage 在本机 Windows 上运行）
+      # 打包 exe + msi（jpackage 在本机 Windows 上运行）
       - name: Package EXE
-        run: ./gradlew packageReleaseExe --no-daemon --stacktrace
+        run: .\gradlew.bat packageReleaseExe --no-daemon --stacktrace
 
-      - name: List artifacts
-        if: always()
+      # 产物路径由 Compose Desktop 约定：
+      #   desktop/build/compose/binaries/main/exe/
+      # 显式断言「文件真的存在」，避免 upload-artifact 的 warn 把空产物吞掉。
+      - name: Verify EXE exists
         run: |
-          if (Test-Path build/compose/binaries/main) {
-            Get-ChildItem -Recurse build/compose/binaries/main | Select-Object FullName, Length
-          } else {
-            Write-Host "not generated"
+          $exe = Get-ChildItem -Recurse build/compose/binaries/main/exe -Filter *.exe -ErrorAction SilentlyContinue
+          if (-not $exe) {
+            Write-Error "没有生成 exe，查看上面的 Gradle 输出"
+            exit 1
           }
-        shell: pwsh
+          $exe | ForEach-Object { Write-Host "$($_.FullName)  $([math]::Round($_.Length/1MB,1)) MB" }
 
       - name: Upload EXE
         uses: actions/upload-artifact@v4
@@ -76,7 +77,7 @@ jobs:
           path: |
             desktop/build/compose/binaries/main/exe/*.exe
             desktop/build/compose/binaries/main/msi/*.msi
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload build reports on failure
         if: failure()
