@@ -11,5 +11,6 @@ interface Cursor : AutoCloseable {
     fun getString(index: Int): String?
     fun getLong(index: Int): Long
     fun getInt(index: Int): Int
-    fun close()
+    fun isNull(index: Int): Boolean
+    override fun close()
 }

@@ -111,6 +111,8 @@ val androidFiles = listOf(
 
     // ── 其他纯 JVM 工具 ──
     "data/security/CredentialCipher.kt",
+    "data/prefs/SettingsRepository.kt",
+    "data/prefs/LinkOpenTarget.kt",
     "data/upload/UploadIo.kt",
     "data/upload/UploadSigning.kt",
     "data/upload/UploadSource.kt",

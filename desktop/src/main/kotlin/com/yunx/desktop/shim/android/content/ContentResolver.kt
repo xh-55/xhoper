@@ -30,6 +30,12 @@ class ContentResolver {
 
     fun getType(uri: Uri): String? = null
 
+    /** SAF 的 assets 句柄；桌面端用普通 File 包一层 */
+    fun openAssetFileDescriptor(uri: Uri, mode: String): AssetFileDescriptor? = runCatching {
+        val f = toFile(uri) ?: return null
+        AssetFileDescriptor(f)
+    }.getOrNull()
+
     fun query(
         uri: Uri,
         projection: Array<String>?,
@@ -100,8 +106,18 @@ class ContentValues {
     fun keySet(): Set<String> = map.keys
 }
 
+/** AssetFileDescriptor：桌面端包一层 File，只为满足 SAF 上传读取的类型需求 */
+class AssetFileDescriptor(private val file: File) : AutoCloseable {
+    val length: Long get() = runCatching { file.length() }.getOrDefault(-1L)
+    fun createInputStream(): InputStream = FileInputStream(file)
+    override fun close() = Unit
+}
+
 /** ParcelFileDescriptor：包一层 File，AutoCloseInputStream 供 UploadSource 用 */
 class ParcelFileDescriptor(private val file: File) {
+    /** 文件长度；Android 上返回 -1 表示未知 */
+    val length: Long get() = runCatching { file.length() }.getOrDefault(-1L)
+
     fun getFileDescriptor(): java.io.FileDescriptor? = null
     fun close() = Unit
 
