@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "total": 0,
+    "page": 1,
+    "pageSize": 100,
+    "totalPages": 0,
+    "hasMore": false,
+    "list": []
+  }
+}

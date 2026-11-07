@@ -1,0 +1,15 @@
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "versionName": "1.0",
+    "versionCode": 1,
+    "notes": "示例清单：把本文件替换成真实发布信息后，App 的「检查更新」就会读到它。\n修改 versionName 为一个比当前安装版本更高的值，弹窗才会出现。",
+    "apkName": "XhOper-1.0.apk",
+    "apkUrl": "http://43.128.136.224/apk/XhOper-1.0.apk",
+    "size": 32600027,
+    "sha256": "",
+    "publishedAt": "2026-11-07T10:00:00Z",
+    "htmlUrl": ""
+  }
+}
